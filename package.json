@@ -1,6 +1,6 @@
 {
   "name": "quiet-electron",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Run Electron apps under Playwright on macOS without taking keyboard focus.",
   "license": "MIT",
   "type": "module",

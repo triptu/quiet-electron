@@ -42,8 +42,7 @@ NODE_OPTIONS="--require $HOME/.quiet-electron/register.cjs" npx playwright test
 
 It wraps `_electron.launch` on each copy of Playwright the test process loads. Every launch then works as if it went through `launchQuiet`: the shim's arguments go before the project's, `ELECTRON_RUN_AS_NODE` is removed, and `QUIET_ELECTRON` from the shell reaches the app.
 
-- A launch that already loads this copy's shim, through `launchQuiet` or `quietArgs`, is left unchanged.
-- When a project's own copy of the package and the registered copy both load into the app, only the first one acts.
+- A launch that already loads a shim, through `launchQuiet` or `quietArgs` from any copy of the package, is left unchanged.
 - It works when the test process runs on Node, as Playwright Test does. Bun does not read `NODE_OPTIONS`.
 - Playwright removes `NODE_OPTIONS` before it starts Electron, so the file never runs in the app.
 - A test that needs the app in front, such as one that turns on full screen, fails as described in [Limits](#limits). The project does not know about the package, so run that test with `QUIET_ELECTRON=off` set in the shell.

@@ -35,7 +35,7 @@ The suite launches through `launchQuiet`, which removes `ELECTRON_RUN_AS_NODE`, 
 
 The tests sample the frontmost app through `lsappinfo` during the whole run and assert that Electron never appears. Activation is asynchronous and can be brief, so window state read at the end would miss it. The test also asserts that samples were taken after the app's attempts, so a sampler that stopped early cannot pass.
 
-`test/plain-launch.mjs` launches the test app with a plain `_electron.launch`, the way a project without the package does. The suite runs it in Node with `register.cjs` loaded.
+`test/plain-launch.mjs` launches the test app with a plain `_electron.launch`, the way a project without the package does. The suite runs it in Node with `register.cjs` loaded. It also sends `test/fake-playwright.cjs` a launch that already loads another copy's shim, which must reach it unchanged.
 
 ### The test app
 
@@ -63,7 +63,7 @@ When you add a way for an app to come forward, add the call to `test/rude.cjs`.
 - **New windows show through the shim's own show function.** The code calls `quietShow.call(win)`, never `win.show()`. An app's subclass may override `show()` and use its own fields, which do not exist yet while the base constructor runs.
 - **The `fullscreen` and `kiosk` option keys are removed, not set to `false`.** `fullscreen: false` also makes the window unable to enter full screen later. The test checks every window is still `fullScreenable`.
 - **Opacity and mouse handling are set in two places.** They are the proxy's constructor and the `browser-window-created` event. The event covers windows Electron builds itself, such as the ones a page opens. The constructor covers `BaseWindow`, which does not fire it.
-- **`register.cjs` leaves a launch alone when its arguments already load this shim.** Loading the same file twice with `-r` runs it once, so the second `-r <shim>` would stay in `process.argv`. A different copy of the shim is a different file: the shim's `quietElectronLoaded` global makes only the first copy act, and each removes its own arguments.
+- **`register.cjs` leaves a launch alone when its arguments already load any file named `quiet.cjs`.** A project's own copy of the package is often in a package manager's store, at a path unlike this one. Two copies would both patch the app, and the same file loaded twice leaves its second `-r` in `process.argv`.
 - **`register.cjs` checks for `_electron` with `Object.hasOwn`.** It runs on every module the test process loads, and a plain property read can call a getter that throws.
 - **The stderr lines keep their `quiet-electron: ignored` prefix.** `PROMPT.md` and the reference tell readers to look for it, and the test asserts the full lines.
 

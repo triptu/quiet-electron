@@ -17,7 +17,7 @@ On macOS, an Electron app that Playwright launches becomes the active app and pu
 ## Getting started
 
 ```sh
-bun add -d github:triptu/quiet-electron#v0.2.0
+bun add -d github:triptu/quiet-electron#v0.2.1
 ```
 
 Launch the app with `launchQuiet` in place of `_electron.launch`. It takes the same options.
@@ -34,7 +34,7 @@ const app = await launchQuiet(_electron, { args: ['path/to/app'] })
 To keep a project's repository unchanged, for example a team repository, load the package into your own shell instead. Clone it once:
 
 ```sh
-git clone --branch v0.2.0 https://github.com/triptu/quiet-electron ~/.quiet-electron
+git clone --branch v0.2.1 https://github.com/triptu/quiet-electron ~/.quiet-electron
 ```
 
 Then add this to `~/.zshenv`, which every shell reads, including the ones coding agents start:

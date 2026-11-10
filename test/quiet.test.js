@@ -121,6 +121,7 @@ describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
       expect(result[name].opacities.every((opacity) => opacity === 0)).toBe(true)
       expect(result[name].shimInArgv).toBe(false)
     }
+    expect(result.otherCopyArgs.launched).toEqual(result.otherCopyArgs.sent)
   }, 30_000)
 })
 

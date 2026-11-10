@@ -10,13 +10,9 @@ const at = process.argv.findIndex((arg, i) => (arg === '-r' || arg === '--requir
 if (at !== -1) process.argv.splice(at, 2)
 
 const mode = readMode(process.env)
-// Two copies of the package can both load: a project's own and the one register.cjs adds.
-// Only the first acts. Each still removes its own arguments above.
-const first = !globalThis.quietElectronLoaded
-globalThis.quietElectronLoaded = true
 // Only the main process has windows and an activation policy. Under ELECTRON_RUN_AS_NODE
 // the process is plain Node.
-if (first && process.platform === 'darwin' && process.type === 'browser' && mode.load) quiet(mode, require('electron'))
+if (process.platform === 'darwin' && process.type === 'browser' && mode.load) quiet(mode, require('electron'))
 
 function quiet(mode, electron) {
   const { app, BaseWindow, BrowserWindow } = electron

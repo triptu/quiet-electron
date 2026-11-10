@@ -3,8 +3,8 @@
 // test needs no change. Playwright removes NODE_OPTIONS before it starts Electron, so this
 // file never runs in the app.
 const Module = require('node:module')
-const { resolve } = require('node:path')
-const { launchQuiet, shimPath } = require('./launch.cjs')
+const { basename } = require('node:path')
+const { launchQuiet } = require('./launch.cjs')
 
 const wrapped = new WeakSet()
 const load = Module._load
@@ -21,8 +21,9 @@ function wrap(electron) {
   const launch = electron.launch
   electron.launch = function (options = {}) {
     const args = options.args ?? []
-    // The project already launches through launchQuiet or quietArgs.
-    if (args.some((arg, i) => (arg === '-r' || arg === '--require') && resolve(args[i + 1] ?? '') === shimPath)) return launch.call(this, options)
+    // The project already loads a shim, its own copy or this one, through launchQuiet or
+    // quietArgs. A second copy would patch the app twice.
+    if (args.some((arg, i) => (arg === '-r' || arg === '--require') && basename(args[i + 1] ?? '') === 'quiet.cjs')) return launch.call(this, options)
     return launchQuiet({ launch: (opts) => launch.call(this, opts) }, options)
   }
 }
