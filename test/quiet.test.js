@@ -31,15 +31,20 @@ function sampleFrontmost() {
   }
 }
 
-async function runRudeApp(mode, main = 'CommonJS') {
+// The main window, the window its page opens, the one its link opens, the kiosk window,
+// the window its page opens through Electron's default handler, and its modal sheet.
+const windowCount = 6
+
+async function runRudeApp(mode, main) {
   const sampler = sampleFrontmost()
   const app = await launchQuiet(_electron, { args: [rudeApps[main]], env: { ...process.env, QUIET_ELECTRON: mode } })
   let stderr = ''
   app.process().stderr.on('data', (chunk) => (stderr += chunk))
   try {
     const page = await app.firstWindow()
+    await page.locator('#link').click()
     // The app's attempts to come forward run at 800 and 1500 ms.
-    while (app.windows().length < 2) await app.waitForEvent('window', { timeout: 5000 })
+    while (app.windows().length < windowCount) await app.waitForEvent('window', { timeout: 5000 })
     const beforeWait = sampler.count()
     // Activation is asynchronous: leave time for one to show in the samples.
     await page.waitForTimeout(1000)
@@ -54,10 +59,16 @@ async function runRudeApp(mode, main = 'CommonJS') {
       return [bgra[at + 2], bgra[at + 1], bgra[at]]
     }, shot.toString('base64'))
     const windows = await app.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows().map((w) => ({ visible: w.isVisible(), opacity: w.getOpacity(), fullScreen: w.isFullScreen() })),
+      BrowserWindow.getAllWindows().map((w) => ({
+        visible: w.isVisible(),
+        opacity: w.getOpacity(),
+        fullScreen: w.isFullScreen(),
+        fullScreenable: w.isFullScreenable(),
+      })),
     )
+    const sheetsBegun = await app.evaluate(() => globalThis.sheetsBegun ?? 0)
     const frontmost = sampler.stop()
-    return { typed, centre, windows, stderr, frontmost, afterAttempts: frontmost.length - beforeWait }
+    return { typed, centre, windows, sheetsBegun, stderr, frontmost, afterAttempts: frontmost.length - beforeWait }
   } finally {
     sampler.stop()
     await app.close()
@@ -65,33 +76,25 @@ async function runRudeApp(mode, main = 'CommonJS') {
 }
 
 describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
-  test.each(Object.keys(rudeApps))('hidden, %s main: the app never comes to the front, and the test still drives and sees it', async (main) => {
-    const run = await runRudeApp('hidden', main)
+  test.each([
+    { mode: 'hidden', main: 'CommonJS', opacity: 0 },
+    { mode: 'hidden', main: 'ESM', opacity: 0 },
+    { mode: 'visible', main: 'CommonJS', opacity: 1 },
+  ])('$mode, $main main: the app never comes to the front, and the test still drives and sees it', async ({ mode, main, opacity }) => {
+    const run = await runRudeApp(mode, main)
+    console.log(`${mode}, ${main}: ${run.frontmost.length} frontmost samples, ${run.afterAttempts} after the attempts`)
     expect(run.afterAttempts).toBeGreaterThanOrEqual(5)
     expect(run.frontmost.filter((path) => path === electronBundle)).toEqual([])
     expect(run.typed).toBe('typed by the test')
     const [red, green, blue] = run.centre
     expect(red).toBeGreaterThan(200)
     expect(Math.max(green, blue)).toBeLessThan(80)
-    expect(run.windows).toEqual([
-      { visible: true, opacity: 0, fullScreen: false },
-      { visible: true, opacity: 0, fullScreen: false },
-    ])
+    expect(run.windows).toEqual(Array(windowCount).fill({ visible: true, opacity, fullScreen: false, fullScreenable: true }))
+    expect(run.sheetsBegun).toBe(1)
     const notices = run.stderr.split('\n').filter((line) => line.startsWith('quiet-electron:'))
     expect(notices).toEqual([
       'quiet-electron: ignored the kiosk window option, since it would bring the app to the front. Set QUIET_ELECTRON=off to run it.',
       'quiet-electron: ignored setFullScreen(true), since it would bring the app to the front. Set QUIET_ELECTRON=off to run it.',
-    ])
-  }, 20_000)
-
-  test('visible: the app never comes to the front, and its windows can be seen', async () => {
-    const run = await runRudeApp('visible')
-    expect(run.afterAttempts).toBeGreaterThanOrEqual(5)
-    expect(run.frontmost.filter((path) => path === electronBundle)).toEqual([])
-    expect(run.typed).toBe('typed by the test')
-    expect(run.windows).toEqual([
-      { visible: true, opacity: 1, fullScreen: false },
-      { visible: true, opacity: 1, fullScreen: false },
     ])
   }, 20_000)
 })
