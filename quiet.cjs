@@ -1,13 +1,20 @@
 // Loaded with `-r` in the Electron main process, before the app's code. On macOS it
 // keeps the app from activating and its windows from taking key focus.
 const Module = require('node:module')
-const electron = require('electron')
+const { resolve } = require('node:path')
 const { readMode } = require('./modes.cjs')
 
-const mode = readMode(process.env)
-if (process.platform === 'darwin' && mode.load) quiet(mode)
+// Electron leaves `-r <shim>` in process.argv, where an app that reads its arguments
+// would take the shim's path for its own.
+const at = process.argv.findIndex((arg, i) => (arg === '-r' || arg === '--require') && resolve(process.argv[i + 1] ?? '') === __filename)
+if (at !== -1) process.argv.splice(at, 2)
 
-function quiet(mode) {
+const mode = readMode(process.env)
+// Only the main process has windows and an activation policy. Under ELECTRON_RUN_AS_NODE
+// the process is plain Node.
+if (process.platform === 'darwin' && process.type === 'browser' && mode.load) quiet(mode, require('electron'))
+
+function quiet(mode, electron) {
   const { app, BaseWindow, BrowserWindow } = electron
   const nothing = () => {}
 
@@ -77,13 +84,13 @@ function quiet(mode) {
   Module._load = function (request, ...rest) {
     return request === 'electron' ? quietElectron : load.call(this, request, ...rest)
   }
-  if (Module.registerHooks) quietImports(quietElectron)
+  if (Module.registerHooks) quietImports(electron, quietElectron)
 }
 
 // `import ... from 'electron'` does not go through Module._load, and Electron's exports
 // cannot be redefined. So the specifier resolves to a module that re-exports the proxy.
 // `require` is left to Module._load, which also covers require() from ESM.
-function quietImports(quietElectron) {
+function quietImports(electron, quietElectron) {
   globalThis[Symbol.for('quiet-electron')] = quietElectron
   const url = 'quiet-electron:electron'
   const names = Object.keys(electron).filter((name) => /^[A-Za-z_$][\w$]*$/.test(name) && name !== 'default')
