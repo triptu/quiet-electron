@@ -46,6 +46,10 @@ const app = await _electron.launch({ args: [...quietArgs(env), 'path/to/app'], e
 
 `quietArgs(env)` returns `['-r', shimPath]` on macOS and `[]` elsewhere or when the mode is `off`. The shim reads `QUIET_ELECTRON` in the app's process, so if you pass your own `env`, pass the one the app runs with.
 
+## Requirements
+
+An app whose main process loads Electron with `require('electron')` works with any Electron version. An app whose main process uses `import ... from 'electron'` needs Electron 37 or later, or at least 36.2.0 on Electron 36, or 35.4.0 on Electron 35. The shim covers `import` through `module.registerHooks`, which Node added in 22.15.0 and 23.5.0, and those are the first Electron releases that ship Node 22.15.0. On an older Electron the shim still loads, but an `import` of `electron` gets the plain module and the app can come to the front.
+
 ## Modes
 
 Set `QUIET_ELECTRON` when you run the tests.
@@ -87,4 +91,4 @@ bun install
 bun test
 ```
 
-The tests run only on macOS. They launch an app that makes every call above, sample the frontmost app every 50 ms, and check that the test app is never frontmost, that typed text reaches its input, and that its screenshot shows the page.
+The tests run only on macOS. They launch an app that makes every call above, once with a CommonJS main and once with an ESM main. They sample the frontmost app every 50 ms and check that the test app is never frontmost, that typed text reaches its input, and that its screenshot shows the page.

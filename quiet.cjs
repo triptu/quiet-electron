@@ -64,4 +64,28 @@ function quiet(mode) {
   Module._load = function (request, ...rest) {
     return request === 'electron' ? quietElectron : load.call(this, request, ...rest)
   }
+  if (Module.registerHooks) quietImports(quietElectron)
+}
+
+// `import ... from 'electron'` does not go through Module._load, and Electron's exports
+// cannot be redefined. So the specifier resolves to a module that re-exports the proxy.
+// `require` is left to Module._load, which also covers require() from ESM.
+function quietImports(quietElectron) {
+  globalThis[Symbol.for('quiet-electron')] = quietElectron
+  const url = 'quiet-electron:electron'
+  const names = Object.keys(electron).filter((name) => /^[A-Za-z_$][\w$]*$/.test(name) && name !== 'default')
+  const source = [
+    `const electron = globalThis[Symbol.for('quiet-electron')]`,
+    'export default electron',
+    ...names.map((name) => `export const ${name} = electron.${name}`),
+  ].join('\n')
+  Module.registerHooks({
+    resolve(specifier, context, next) {
+      if (specifier === 'electron' && !context.conditions.includes('require')) return { url, format: 'module', shortCircuit: true }
+      return next(specifier, context)
+    },
+    load(target, context, next) {
+      return target === url ? { format: 'module', source, shortCircuit: true } : next(target, context)
+    },
+  })
 }

@@ -6,7 +6,9 @@ import electronPath from 'electron'
 import { _electron } from 'playwright'
 import { launchQuiet } from '../index.js'
 
-const rudeApp = resolve(dirname(fileURLToPath(import.meta.url)), 'rude-app')
+const here = dirname(fileURLToPath(import.meta.url))
+// The same app twice: its main process loads electron with require() and with import.
+const rudeApps = { CommonJS: resolve(here, 'rude-app'), ESM: resolve(here, 'rude-esm-app') }
 const electronBundle = electronPath.slice(0, electronPath.indexOf('.app/') + '.app'.length)
 
 // Records the frontmost app's bundle path every 50 ms, through LaunchServices.
@@ -29,9 +31,9 @@ function sampleFrontmost() {
   }
 }
 
-async function runRudeApp(mode) {
+async function runRudeApp(mode, main = 'CommonJS') {
   const sampler = sampleFrontmost()
-  const app = await launchQuiet(_electron, { args: [rudeApp], env: { ...process.env, QUIET_ELECTRON: mode } })
+  const app = await launchQuiet(_electron, { args: [rudeApps[main]], env: { ...process.env, QUIET_ELECTRON: mode } })
   try {
     const page = await app.firstWindow()
     // The app's attempts to come forward run at 800 and 1500 ms.
@@ -61,8 +63,8 @@ async function runRudeApp(mode) {
 }
 
 describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
-  test('hidden: the app never comes to the front, and the test still drives and sees it', async () => {
-    const run = await runRudeApp('hidden')
+  test.each(Object.keys(rudeApps))('hidden, %s main: the app never comes to the front, and the test still drives and sees it', async (main) => {
+    const run = await runRudeApp('hidden', main)
     expect(run.afterAttempts).toBeGreaterThanOrEqual(5)
     expect(run.frontmost.filter((path) => path === electronBundle)).toEqual([])
     expect(run.typed).toBe('typed by the test')
