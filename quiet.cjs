@@ -50,6 +50,13 @@ function quiet(mode, electron) {
   BaseWindow.prototype.setKiosk = function (on) {
     if (on) ignored('setKiosk(true)')
   }
+  // The keys are removed rather than set to false: `fullscreen: false` also makes the
+  // window unable to enter full screen.
+  function withoutFullScreen({ fullscreen, kiosk, ...options }) {
+    if (fullscreen) ignored('the fullscreen window option')
+    if (kiosk) ignored('the kiosk window option')
+    return options
+  }
   // webContents.focus() focuses its window, which activates the app.
   app.on('web-contents-created', (_event, contents) => {
     contents.focus = nothing
@@ -66,11 +73,9 @@ function quiet(mode, electron) {
   function quietClass(Class) {
     const Quiet = new Proxy(Class, {
       construct(target, [options = {}, ...rest], newTarget) {
-        if (options.fullscreen) ignored('the fullscreen window option')
-        if (options.kiosk) ignored('the kiosk window option')
-        const win = Reflect.construct(target, [{ ...options, show: false, fullscreen: false, kiosk: false }, ...rest], newTarget === Quiet ? target : newTarget)
+        const win = Reflect.construct(target, [{ ...withoutFullScreen(options), show: false }, ...rest], newTarget === Quiet ? target : newTarget)
         tuck(win)
-        if (options.show !== false) win.showInactive()
+        if (options.show !== false) win.show()
         return win
       },
     })
