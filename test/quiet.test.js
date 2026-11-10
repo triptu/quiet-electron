@@ -21,6 +21,7 @@ function sampleFrontmost() {
     }
   })
   return {
+    count: () => samples.length,
     stop() {
       sampler.kill()
       return samples
@@ -35,6 +36,7 @@ async function runRudeApp(mode) {
     const page = await app.firstWindow()
     // The app's attempts to come forward run at 800 and 1500 ms.
     while (app.windows().length < 2) await app.waitForEvent('window', { timeout: 5000 })
+    const beforeWait = sampler.count()
     // Activation is asynchronous: leave time for one to show in the samples.
     await page.waitForTimeout(1000)
     await page.locator('#i').pressSequentially('typed by the test')
@@ -50,7 +52,8 @@ async function runRudeApp(mode) {
     const windows = await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows().map((w) => ({ visible: w.isVisible(), opacity: w.getOpacity() })),
     )
-    return { typed, centre, windows, frontmost: sampler.stop() }
+    const frontmost = sampler.stop()
+    return { typed, centre, windows, frontmost, afterAttempts: frontmost.length - beforeWait }
   } finally {
     sampler.stop()
     await app.close()
@@ -60,7 +63,7 @@ async function runRudeApp(mode) {
 describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
   test('hidden: the app never comes to the front, and the test still drives and sees it', async () => {
     const run = await runRudeApp('hidden')
-    expect(run.frontmost.length).toBeGreaterThan(40)
+    expect(run.afterAttempts).toBeGreaterThanOrEqual(5)
     expect(run.frontmost.filter((path) => path === electronBundle)).toEqual([])
     expect(run.typed).toBe('typed by the test')
     const [red, green, blue] = run.centre
@@ -74,7 +77,7 @@ describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
 
   test('visible: the app never comes to the front, and its windows can be seen', async () => {
     const run = await runRudeApp('visible')
-    expect(run.frontmost.length).toBeGreaterThan(40)
+    expect(run.afterAttempts).toBeGreaterThanOrEqual(5)
     expect(run.frontmost.filter((path) => path === electronBundle)).toEqual([])
     expect(run.typed).toBe('typed by the test')
     expect(run.windows).toEqual([
