@@ -14,6 +14,7 @@ interface Launcher {
 
 /**
  * Calls Playwright's `_electron.launch` with the shim's arguments before `options.args`
- * and without `ELECTRON_RUN_AS_NODE` in the environment.
+ * and without `ELECTRON_RUN_AS_NODE` in the environment. When `options.env` has no
+ * `QUIET_ELECTRON`, it takes the one from `process.env`.
  */
 export declare function launchQuiet<L extends Launcher>(electron: L, options?: Parameters<L['launch']>[0]): ReturnType<L['launch']>
