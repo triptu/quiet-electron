@@ -57,15 +57,40 @@ function quiet(mode, electron) {
     if (kiosk) ignored('the kiosk window option')
     return options
   }
-  // webContents.focus() focuses its window, which activates the app.
-  app.on('web-contents-created', (_event, contents) => {
-    contents.focus = nothing
-  })
 
   function tuck(win) {
     if (mode.opacity !== undefined) win.setOpacity(mode.opacity)
     if (mode.ignoreMouse) win.setIgnoreMouseEvents(true)
   }
+  // Every BrowserWindow, whichever code built it.
+  app.on('browser-window-created', (_event, win) => tuck(win))
+
+  // Electron builds the windows a page opens with its own BrowserWindow, not the app's,
+  // and with `show: true` unless the open handler says otherwise. So every handler's
+  // `allow` creates the window hidden, and it is shown once created.
+  const showOnCreate = Symbol('quiet-electron show')
+  const allow = () => ({ action: 'allow' })
+  function quietOpenHandler(handler) {
+    return function (details) {
+      const response = handler.call(this, details)
+      // With createWindow the app builds the window itself, through the quiet classes.
+      if (response?.action !== 'allow' || response.createWindow) return response
+      const asked = response.overrideBrowserWindowOptions
+      const options = withoutFullScreen(typeof asked === 'object' && asked ? asked : {})
+      return { ...response, overrideBrowserWindowOptions: { ...options, show: false, [showOnCreate]: options.show !== false } }
+    }
+  }
+  app.on('web-contents-created', (_event, contents) => {
+    // webContents.focus() focuses its window, which activates the app.
+    contents.focus = nothing
+    const setWindowOpenHandler = contents.setWindowOpenHandler
+    // Electron treats a handler that is not a function as no handler, which allows.
+    contents.setWindowOpenHandler = (handler) => setWindowOpenHandler.call(contents, quietOpenHandler(typeof handler === 'function' ? handler : allow))
+    contents.setWindowOpenHandler(allow)
+    contents.on('did-create-window', (win, { options }) => {
+      if (options[showOnCreate]) win.show()
+    })
+  })
 
   // A Proxy, not a subclass: getAllWindows() filters by constructor name, so windows
   // must stay plain BrowserWindows. A window created with `show: true` would show
