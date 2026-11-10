@@ -1,5 +1,6 @@
-// Does everything an app can do to come to the front on macOS. Each main passes in what it
-// loaded from 'electron' and 'electron/main', with require() or with import.
+// Makes the calls an app uses to come to the front on macOS. CLAUDE.md lists the ones it
+// leaves out. Each main passes in what it loaded from 'electron' and 'electron/main', with
+// require() or with import.
 module.exports = function behaveRudely({ app, BrowserWindow, MainBrowserWindow }) {
   // A failing construction should fail the test, not open Electron's error dialog.
   process.on('uncaughtException', (error) => console.error(error))

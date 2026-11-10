@@ -23,27 +23,44 @@ bun install
 bun test
 ```
 
-- The tests run only on macOS. On other platforms the suite skips, because the shim changes nothing there.
-- `QUIET_ELECTRON_TEST_VISIBLE=1 bun test` adds a `visible` mode case. Its windows sit on top of the other apps while it runs, so it runs only on request.
-- The suite launches through `launchQuiet`, which removes `ELECTRON_RUN_AS_NODE`, so it passes from a shell that exports that variable. If you launch Electron by hand to debug, unset it first.
-- `test/rude.cjs` is the test app. It makes every call that brings an app forward on macOS: it shows, focuses and raises windows, focuses the app, asks for kiosk mode and full screen, opens windows from pages three ways (through its own open handler, a `target=_blank` link and Electron's default handler), opens a modal child, and builds a window from a subclass that overrides `show()`. `test/rude-app` runs it from a CommonJS main and `test/rude-esm-app` from an ESM main. Each loads Electron both as `electron` and as `electron/main`.
-- The tests sample the frontmost app through `lsappinfo` during the whole run and assert that Electron never appears. Activation is asynchronous and can be brief, so window state read at the end would miss it. The test also asserts that samples were taken after the app's attempts, so a sampler that stopped early cannot pass.
-- When you add a way for an app to come forward, add the call to `test/rude.cjs`.
+A test run must never take the user's keyboard or cover their screen.
 
-A test run must never take the user's keyboard or cover their screen. Never add a control case that runs the app with the shim off, even to prove that the test app does come forward without it. Run that check by hand, and only when the user asks.
+- Never add a control case that runs the app with the shim off, even to prove that the test app comes forward without it. Run that check by hand, and only when the user asks.
+- The `visible` mode case shows windows on the user's screen, so it runs only on request: `QUIET_ELECTRON_TEST_VISIBLE=1 bun test`.
 
-## Design facts that are easy to break
+The tests run only on macOS. On other platforms the suite skips, because the shim changes nothing there.
+
+The suite launches through `launchQuiet`, which removes `ELECTRON_RUN_AS_NODE`, so it passes from a shell that exports that variable. If you launch Electron by hand to debug, unset it first.
+
+The tests sample the frontmost app through `lsappinfo` during the whole run and assert that Electron never appears. Activation is asynchronous and can be brief, so window state read at the end would miss it. The test also asserts that samples were taken after the app's attempts, so a sampler that stopped early cannot pass.
+
+### The test app
+
+`test/rude.cjs` is the test app. `test/rude-app` runs it from a CommonJS main. `test/rude-esm-app` runs it from an ESM main. Each main loads Electron as both `electron` and `electron/main`.
+
+The test app:
+
+- creates windows with the default `show: true`;
+- calls `win.show()`, `win.focus()`, `win.moveTop()`, `webContents.focus()`, `app.show()` and `app.focus({ steal: true })`;
+- creates a window with `kiosk: true` and calls `setFullScreen(true)` on it;
+- opens a window from a page through its own open handler, with `window.open` and with a `target=_blank` link that the test clicks;
+- opens a window from a page through Electron's default handler;
+- opens a modal child of a window;
+- builds a window from a subclass that overrides `show()`.
+
+It does not exercise these paths that the shim also covers: `app.hide()`, `app.dock.show()`, `setKiosk(true)`, the `fullscreen` window option, a `BaseWindow` built directly, a window with `show: false`, and an open handler that returns `createWindow`. It does not try the native routes in the [limits](docs/how-it-works.md#limits).
+
+When you add a way for an app to come forward, add the call to `test/rude.cjs`.
+
+## Invariants that are easy to break
+
+[docs/how-it-works.md](docs/how-it-works.md) says what the shim does. These are the reasons behind code that looks like it could be simpler.
 
 - **The window classes are Proxies, not subclasses.** `BrowserWindow.getAllWindows()` filters by constructor name, so a window built through a subclass would be left out. The proxy constructs with Electron's own class as `new.target`, so windows stay plain `BrowserWindow`s. An app's own subclass keeps its `new.target`.
 - **New windows show through the shim's own show function.** The code calls `quietShow.call(win)`, never `win.show()`. An app's subclass may override `show()` and use its own fields, which do not exist yet while the base constructor runs.
 - **The `fullscreen` and `kiosk` option keys are removed, not set to `false`.** `fullscreen: false` also makes the window unable to enter full screen later. The test checks every window is still `fullScreenable`.
-- **A modal child with a parent shows natively.** It becomes a sheet, which does not activate the app.
-- **CommonJS goes through `Module._load`, ESM through `Module.registerHooks`.** An `import` of `electron` does not pass through `Module._load`, and Electron's exports cannot be redefined, so the hook resolves the specifier to a module that re-exports the proxy. `require()` from ESM still goes through `Module._load`. On a Node without `registerHooks` the shim skips the hook and does not fail.
-- **Every Electron specifier is replaced.** They are `electron`, `electron/main` and the rest listed in `quiet.cjs`. In the main process they are the same module, and an app can get its window class from any of them.
-- **The shim acts only in the main process on macOS.** Only that process has windows and an activation policy. Renderer and utility processes, and a process under `ELECTRON_RUN_AS_NODE`, are left alone.
-- **The shim removes its own `-r <path>` from `process.argv`.** It does this before anything else. Electron leaves it there, and an app that reads its arguments would take the shim's path for its own.
 - **Opacity and mouse handling are set in two places.** They are the proxy's constructor and the `browser-window-created` event. The event covers windows Electron builds itself, such as the ones a page opens. The constructor covers `BaseWindow`, which does not fire it.
-- **The shim reports ignored full screen and kiosk requests on stderr.** It writes one line per kind of request. The test asserts the exact lines. Without them a test that expects full screen fails with no hint why.
+- **The stderr lines keep their `quiet-electron: ignored` prefix.** `PROMPT.md` and the reference tell readers to look for it, and the test asserts the full lines.
 
 ## Working rules
 
