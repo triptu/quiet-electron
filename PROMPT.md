@@ -15,7 +15,9 @@ You are adding `quiet-electron` to a project whose Playwright tests launch an El
 
 ## 2. Record a baseline
 
-Before you change anything, run the full Electron suite as it is. Write down each test that passes, each that fails and each that is skipped. On a Mac this run still brings the app to the front.
+Before you change anything, run the full Electron suite as it is. Write down each test that passes, each that fails and each that is skipped.
+
+On a Mac this run still brings the app to the front and takes the user's keyboard. Tell the user before you start it, so they can stop typing or step away.
 
 If a test fails, run it again. A test that passes on some runs and fails on others is flaky. Write that down too.
 
