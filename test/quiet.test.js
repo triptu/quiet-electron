@@ -77,11 +77,13 @@ async function runRudeApp(mode, main) {
 }
 
 describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
-  test.each([
+  // Visible windows sit on top of whatever you are using, so that case runs only on request.
+  const cases = [
     { mode: 'hidden', main: 'CommonJS', opacity: 0 },
     { mode: 'hidden', main: 'ESM', opacity: 0 },
-    { mode: 'visible', main: 'CommonJS', opacity: 1 },
-  ])('$mode, $main main: the app never comes to the front, and the test still drives and sees it', async ({ mode, main, opacity }) => {
+    ...(process.env.QUIET_ELECTRON_TEST_VISIBLE === '1' ? [{ mode: 'visible', main: 'CommonJS', opacity: 1 }] : []),
+  ]
+  test.each(cases)('$mode, $main main: the app never comes to the front, and the test still drives and sees it', async ({ mode, main, opacity }) => {
     const run = await runRudeApp(mode, main)
     console.log(`${mode}, ${main}: ${run.frontmost.length} frontmost samples, ${run.afterAttempts} after the attempts`)
     expect(run.afterAttempts).toBeGreaterThanOrEqual(5)
