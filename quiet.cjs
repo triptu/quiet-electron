@@ -29,9 +29,20 @@ function quiet(mode) {
   BaseWindow.prototype.focus = nothing
   BaseWindow.prototype.moveTop = nothing
   // Full screen moves the window to its own Space and macOS switches to it, activating
-  // the app. Kiosk mode enters full screen natively.
-  BaseWindow.prototype.setFullScreen = nothing
-  BaseWindow.prototype.setKiosk = nothing
+  // the app. Kiosk mode enters full screen natively. A test that expects either would
+  // otherwise fail with no hint why, so the first ignored request says so.
+  const warned = new Set()
+  function ignored(what) {
+    if (warned.has(what)) return
+    warned.add(what)
+    process.stderr.write(`quiet-electron: ignored ${what}, since it would bring the app to the front. Set QUIET_ELECTRON=off to run it.\n`)
+  }
+  BaseWindow.prototype.setFullScreen = function (on) {
+    if (on) ignored('setFullScreen(true)')
+  }
+  BaseWindow.prototype.setKiosk = function (on) {
+    if (on) ignored('setKiosk(true)')
+  }
   // webContents.focus() focuses its window, which activates the app.
   app.on('web-contents-created', (_event, contents) => {
     contents.focus = nothing
@@ -48,6 +59,8 @@ function quiet(mode) {
   function quietClass(Class) {
     const Quiet = new Proxy(Class, {
       construct(target, [options = {}, ...rest], newTarget) {
+        if (options.fullscreen) ignored('the fullscreen window option')
+        if (options.kiosk) ignored('the kiosk window option')
         const win = Reflect.construct(target, [{ ...options, show: false, fullscreen: false, kiosk: false }, ...rest], newTarget === Quiet ? target : newTarget)
         tuck(win)
         if (options.show !== false) win.showInactive()

@@ -34,6 +34,8 @@ function sampleFrontmost() {
 async function runRudeApp(mode, main = 'CommonJS') {
   const sampler = sampleFrontmost()
   const app = await launchQuiet(_electron, { args: [rudeApps[main]], env: { ...process.env, QUIET_ELECTRON: mode } })
+  let stderr = ''
+  app.process().stderr.on('data', (chunk) => (stderr += chunk))
   try {
     const page = await app.firstWindow()
     // The app's attempts to come forward run at 800 and 1500 ms.
@@ -52,10 +54,10 @@ async function runRudeApp(mode, main = 'CommonJS') {
       return [bgra[at + 2], bgra[at + 1], bgra[at]]
     }, shot.toString('base64'))
     const windows = await app.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows().map((w) => ({ visible: w.isVisible(), opacity: w.getOpacity() })),
+      BrowserWindow.getAllWindows().map((w) => ({ visible: w.isVisible(), opacity: w.getOpacity(), fullScreen: w.isFullScreen() })),
     )
     const frontmost = sampler.stop()
-    return { typed, centre, windows, frontmost, afterAttempts: frontmost.length - beforeWait }
+    return { typed, centre, windows, stderr, frontmost, afterAttempts: frontmost.length - beforeWait }
   } finally {
     sampler.stop()
     await app.close()
@@ -72,8 +74,13 @@ describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
     expect(red).toBeGreaterThan(200)
     expect(Math.max(green, blue)).toBeLessThan(80)
     expect(run.windows).toEqual([
-      { visible: true, opacity: 0 },
-      { visible: true, opacity: 0 },
+      { visible: true, opacity: 0, fullScreen: false },
+      { visible: true, opacity: 0, fullScreen: false },
+    ])
+    const notices = run.stderr.split('\n').filter((line) => line.startsWith('quiet-electron:'))
+    expect(notices).toEqual([
+      'quiet-electron: ignored the kiosk window option, since it would bring the app to the front. Set QUIET_ELECTRON=off to run it.',
+      'quiet-electron: ignored setFullScreen(true), since it would bring the app to the front. Set QUIET_ELECTRON=off to run it.',
     ])
   }, 20_000)
 
@@ -83,8 +90,8 @@ describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
     expect(run.frontmost.filter((path) => path === electronBundle)).toEqual([])
     expect(run.typed).toBe('typed by the test')
     expect(run.windows).toEqual([
-      { visible: true, opacity: 1 },
-      { visible: true, opacity: 1 },
+      { visible: true, opacity: 1, fullScreen: false },
+      { visible: true, opacity: 1, fullScreen: false },
     ])
   }, 20_000)
 })

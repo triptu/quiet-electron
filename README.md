@@ -78,7 +78,7 @@ Windows stay visible to the system, so the page keeps drawing frames and `page.s
 ## Limits
 
 - In the main process, `win.isFocused()` is false and `BrowserWindow.getFocusedWindow()` is null. Code that behaves differently when the app is in front takes its background path.
-- Full screen and kiosk mode never turn on.
+- Full screen and kiosk mode never turn on. The first time in a process that the app makes each kind of request, through `setFullScreen(true)`, `setKiosk(true)`, or the `fullscreen` or `kiosk` window option, the shim writes a line to stderr naming what it ignored. A test that needs full screen must run with `QUIET_ELECTRON=off`, and that test then brings the app to the front.
 - Native menus, dialogs, notifications and the tray are not covered. A native dialog or a menu role such as `togglefullscreen` can still bring the app forward.
 - The clipboard is still shared with you. A test that copies or pastes reads and writes your clipboard.
 - An app that sets a window's opacity or mouse handling itself after creating it can undo `hidden` mode for that window.
@@ -91,4 +91,4 @@ bun install
 bun test
 ```
 
-The tests run only on macOS. They launch an app that makes every call above, once with a CommonJS main and once with an ESM main. They sample the frontmost app every 50 ms and check that the test app is never frontmost, that typed text reaches its input, and that its screenshot shows the page.
+The tests run only on macOS. They launch an app that makes every call above, once with a CommonJS main and once with an ESM main. They sample the frontmost app every 50 ms and check that the test app is never frontmost, that typed text reaches its input, that its screenshot shows the page, and that the shim reports the full screen and kiosk requests it ignored.
