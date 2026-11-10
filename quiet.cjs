@@ -85,17 +85,19 @@ function quiet(mode, electron) {
   const quietElectron = new Proxy(electron, {
     get: (target, key) => (Object.hasOwn(replaced, key) ? replaced[key] : Reflect.get(target, key)),
   })
+  // In the main process each of these resolves to the same module as `electron`.
+  const specifiers = new Set(['electron', 'electron/main', 'electron/common', 'electron/renderer', 'electron/utility'])
   const load = Module._load
   Module._load = function (request, ...rest) {
-    return request === 'electron' ? quietElectron : load.call(this, request, ...rest)
+    return specifiers.has(request) ? quietElectron : load.call(this, request, ...rest)
   }
-  if (Module.registerHooks) quietImports(electron, quietElectron)
+  if (Module.registerHooks) quietImports(electron, quietElectron, specifiers)
 }
 
 // `import ... from 'electron'` does not go through Module._load, and Electron's exports
 // cannot be redefined. So the specifier resolves to a module that re-exports the proxy.
 // `require` is left to Module._load, which also covers require() from ESM.
-function quietImports(electron, quietElectron) {
+function quietImports(electron, quietElectron, specifiers) {
   globalThis[Symbol.for('quiet-electron')] = quietElectron
   const url = 'quiet-electron:electron'
   const names = Object.keys(electron).filter((name) => /^[A-Za-z_$][\w$]*$/.test(name) && name !== 'default')
@@ -106,7 +108,7 @@ function quietImports(electron, quietElectron) {
   ].join('\n')
   Module.registerHooks({
     resolve(specifier, context, next) {
-      if (specifier === 'electron' && !context.conditions.includes('require')) return { url, format: 'module', shortCircuit: true }
+      if (specifiers.has(specifier) && !context.conditions.includes('require')) return { url, format: 'module', shortCircuit: true }
       return next(specifier, context)
     },
     load(target, context, next) {
