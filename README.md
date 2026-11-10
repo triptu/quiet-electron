@@ -1,6 +1,6 @@
 # quiet-electron
 
-Keeps an Electron app in the background on macOS while Playwright tests it, so it never takes your keyboard or covers your windows.
+Keeps an Electron app in the background on macOS while Playwright tests it, so you can keep typing in other apps.
 
 ## Why
 
@@ -8,10 +8,10 @@ On macOS, an Electron app that Playwright launches becomes the active app and pu
 
 ## What you get
 
-- The app never becomes the active app and its windows never take focus. You keep typing in other apps while the tests run.
+- The app does not become the active app when it launches, shows a window or asks for focus, and its windows do not take focus. A native dialog or a menu command can still bring it forward, as the [limits](docs/how-it-works.md#limits) say.
 - By default its windows are invisible and clicks pass through them.
 - Playwright still types, clicks and takes screenshots.
-- `QUIET_ELECTRON=visible` shows the windows so you can watch a run and keep your keyboard. `QUIET_ELECTRON=off` runs the app unchanged.
+- `QUIET_ELECTRON=visible` leaves the windows visible so you can watch a run and keep your keyboard. `QUIET_ELECTRON=off` runs the app unchanged.
 - On Linux and Windows it does nothing, so the same launch code runs in CI.
 
 ## Getting started
@@ -35,6 +35,6 @@ Or give this prompt to your coding agent:
 Add https://github.com/triptu/quiet-electron to my Electron app's Playwright tests. Follow PROMPT.md in that repo.
 ```
 
-[PROMPT.md](PROMPT.md) also covers launches you build yourself and tests that need the app in front, such as full screen. To change the setup later, ask the agent.
+[PROMPT.md](PROMPT.md) also covers launches that pass their own environment and tests that need the app in front, such as full screen. To change the setup later, ask the agent.
 
-[How it works](docs/how-it-works.md) lists the modes, what changes in the app, the Electron versions an ESM main needs, and the limits.
+[How it works](docs/how-it-works.md) lists the modes, what changes in the app, the Electron versions it needs, and the limits.

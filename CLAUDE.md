@@ -6,7 +6,7 @@ A small package that keeps an Electron app in the background on macOS while Play
 
 - `README.md` is the product page for someone deciding whether to use the package.
 - `PROMPT.md` tells a coding agent how to add the package to another project.
-- `docs/how-it-works.md` is the reference: the modes, what the shim changes, the Electron versions an ESM main needs, and the limits.
+- `docs/how-it-works.md` is the reference: the modes, what the shim changes, the Electron versions it needs, and the limits.
 
 Each fact lives in one of these, and the others link to it. A change to what the shim does, to a mode or to a limit updates `docs/how-it-works.md` in the same commit.
 
