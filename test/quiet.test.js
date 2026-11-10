@@ -33,7 +33,7 @@ function sampleFrontmost() {
 
 // The main window, the window its page opens, the one its link opens, the kiosk window,
 // the window its page opens through Electron's default handler, and its modal sheet.
-const windowCount = 6
+const windowCount = 7
 
 async function runRudeApp(mode, main) {
   const sampler = sampleFrontmost()
@@ -58,8 +58,9 @@ async function runRudeApp(mode, main) {
       const at = (Math.floor(height / 2) * width + Math.floor(width / 2)) * 4
       return [bgra[at + 2], bgra[at + 1], bgra[at]]
     }, shot.toString('base64'))
-    const windows = await app.evaluate(({ BrowserWindow }) =>
-      BrowserWindow.getAllWindows().map((w) => ({
+    // BaseWindow, since BrowserWindow.getAllWindows() leaves out subclasses, shim or not.
+    const windows = await app.evaluate(({ BaseWindow }) =>
+      BaseWindow.getAllWindows().map((w) => ({
         visible: w.isVisible(),
         opacity: w.getOpacity(),
         fullScreen: w.isFullScreen(),

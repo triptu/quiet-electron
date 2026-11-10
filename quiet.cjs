@@ -28,7 +28,8 @@ function quiet(mode, electron) {
   app.show = nothing
   app.hide = nothing // with show a no-op, hiding could never be undone
   const show = BaseWindow.prototype.show
-  BaseWindow.prototype.show = function () {
+  BaseWindow.prototype.show = quietShow
+  function quietShow() {
     // A modal child shows as a sheet, which does not activate the app.
     if (this.isModal() && this.getParentWindow()) show.call(this)
     else this.showInactive()
@@ -88,7 +89,7 @@ function quiet(mode, electron) {
     contents.setWindowOpenHandler = (handler) => setWindowOpenHandler.call(contents, quietOpenHandler(typeof handler === 'function' ? handler : allow))
     contents.setWindowOpenHandler(allow)
     contents.on('did-create-window', (win, { options }) => {
-      if (options[showOnCreate]) win.show()
+      if (options[showOnCreate]) quietShow.call(win)
     })
   })
 
@@ -100,7 +101,8 @@ function quiet(mode, electron) {
       construct(target, [options = {}, ...rest], newTarget) {
         const win = Reflect.construct(target, [{ ...withoutFullScreen(options), show: false }, ...rest], newTarget === Quiet ? target : newTarget)
         tuck(win)
-        if (options.show !== false) win.show()
+        // Not win.show(): a subclass's override would run before its own fields exist.
+        if (options.show !== false) quietShow.call(win)
         return win
       },
     })

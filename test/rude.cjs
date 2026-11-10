@@ -1,6 +1,16 @@
 // Does everything an app can do to come to the front on macOS. Each main passes in what it
 // loaded from 'electron' and 'electron/main', with require() or with import.
 module.exports = function behaveRudely({ app, BrowserWindow, MainBrowserWindow }) {
+  // A failing construction should fail the test, not open Electron's error dialog.
+  process.on('uncaughtException', (error) => console.error(error))
+  // Apps subclass their windows and override show() with state of their own.
+  class CountingWindow extends BrowserWindow {
+    #shows = 0
+    show() {
+      this.#shows++
+      super.show()
+    }
+  }
   app.whenReady().then(() => {
     const win = new BrowserWindow({ width: 600, height: 400 })
     win.webContents.setWindowOpenHandler(() => ({ action: 'allow', overrideBrowserWindowOptions: { width: 320, height: 200 } }))
@@ -24,6 +34,7 @@ module.exports = function behaveRudely({ app, BrowserWindow, MainBrowserWindow }
       second.webContents.executeJavaScript("window.open('about:blank', '_blank')", true)
       const sheet = new MainBrowserWindow({ parent: second, modal: true, width: 200, height: 100 })
       sheet.loadURL('data:text/html,sheet')
+      new CountingWindow({ width: 200, height: 100 }).loadURL('data:text/html,counting')
     }, 1500)
   })
 }
