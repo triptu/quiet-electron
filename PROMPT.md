@@ -26,10 +26,10 @@ If a test fails, run it again. A test that passes on some runs and fails on othe
 Install it as a dev dependency, pinned to the release, with the package manager the project already uses:
 
 ```sh
-bun add -d github:triptu/quiet-electron#v0.1.0
-npm install -D github:triptu/quiet-electron#v0.1.0
-pnpm add -D github:triptu/quiet-electron#v0.1.0
-yarn add -D quiet-electron@github:triptu/quiet-electron#v0.1.0
+bun add -d github:triptu/quiet-electron#v0.2.0
+npm install -D github:triptu/quiet-electron#v0.2.0
+pnpm add -D github:triptu/quiet-electron#v0.2.0
+yarn add -D quiet-electron@github:triptu/quiet-electron#v0.2.0
 ```
 
 ## 4. Find every launch

@@ -32,6 +32,22 @@ The launch reads the mode to decide whether to load the shim, and the shim reads
 - `launchQuiet` launches the app with `options.env`, or with `process.env` when there is none. When that environment has no `QUIET_ELECTRON`, it copies the one from `process.env`. A value set in `options.env` wins.
 - `quietArgs(env)` reads only the environment you pass it. Pass the one the app is launched with.
 
+## Without adding it to the project
+
+`register.cjs` loads the shim for a project that does not depend on the package. Load it into the test process with `NODE_OPTIONS`:
+
+```sh
+NODE_OPTIONS="--require $HOME/.quiet-electron/register.cjs" npx playwright test
+```
+
+It wraps `_electron.launch` on each copy of Playwright the test process loads. Every launch then works as if it went through `launchQuiet`: the shim's arguments go before the project's, `ELECTRON_RUN_AS_NODE` is removed, and `QUIET_ELECTRON` from the shell reaches the app.
+
+- A launch that already loads this copy's shim, through `launchQuiet` or `quietArgs`, is left unchanged.
+- When a project's own copy of the package and the registered copy both load into the app, only the first one acts.
+- It works when the test process runs on Node, as Playwright Test does. Bun does not read `NODE_OPTIONS`.
+- Playwright removes `NODE_OPTIONS` before it starts Electron, so the file never runs in the app.
+- A test that needs the app in front, such as one that turns on full screen, fails as described in [Limits](#limits). The project does not know about the package, so run that test with `QUIET_ELECTRON=off` set in the shell.
+
 ## What the shim changes
 
 The shim is `quiet.cjs`. Electron loads it with `-r` in the main process, before the app's code. It acts only in the main process on macOS. `launchQuiet` and `quietArgs` add the `-r` argument on macOS and nothing on other platforms. To load it another way, the package exports its path as `shimPath` and the file as `quiet-electron/shim`.

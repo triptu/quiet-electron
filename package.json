@@ -1,6 +1,6 @@
 {
   "name": "quiet-electron",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Run Electron apps under Playwright on macOS without taking keyboard focus.",
   "license": "MIT",
   "type": "module",
@@ -9,9 +9,10 @@
       "types": "./index.d.ts",
       "default": "./index.js"
     },
-    "./shim": "./quiet.cjs"
+    "./shim": "./quiet.cjs",
+    "./register": "./register.cjs"
   },
-  "files": ["index.js", "index.d.ts", "quiet.cjs", "modes.cjs"],
+  "files": ["index.js", "index.d.ts", "launch.cjs", "register.cjs", "quiet.cjs", "modes.cjs"],
   "scripts": {
     "test": "bun test"
   },

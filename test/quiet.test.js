@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import electronPath from 'electron'
 import { _electron } from 'playwright'
-import { launchQuiet } from '../index.js'
+import { launchQuiet, shimPath } from '../index.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 // The same app twice: its main process loads electron with require() and with import.
@@ -100,6 +100,28 @@ describe.skipIf(process.platform !== 'darwin')('on macOS', () => {
       'quiet-electron: ignored setFullScreen(true), since it would bring the app to the front. Set QUIET_ELECTRON=off to run it.',
     ])
   }, 20_000)
+
+  test('a project that calls _electron.launch itself stays in the background when register.cjs is loaded', async () => {
+    const sampler = sampleFrontmost()
+    const child = spawn('node', [resolve(here, 'plain-launch.mjs'), rudeApps.CommonJS, shimPath], {
+      env: { ...process.env, NODE_OPTIONS: `--require ${resolve(here, '../register.cjs')}` },
+    })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (chunk) => (stdout += chunk))
+    child.stderr.on('data', (chunk) => (stderr += chunk))
+    const code = await new Promise((done) => child.on('close', done))
+    const frontmost = sampler.stop()
+    expect({ code, stderr: stderr.split('\n').filter((line) => !line.startsWith('quiet-electron:')).join('\n').trim() }).toEqual({ code: 0, stderr: '' })
+    expect(frontmost.length).toBeGreaterThanOrEqual(5)
+    expect(frontmost.filter((path) => path === electronBundle)).toEqual([])
+    const result = JSON.parse(stdout)
+    for (const name of ['plain', 'launchQuiet']) {
+      expect(result[name].opacities.length).toBeGreaterThan(0)
+      expect(result[name].opacities.every((opacity) => opacity === 0)).toBe(true)
+      expect(result[name].shimInArgv).toBe(false)
+    }
+  }, 30_000)
 })
 
 if (process.platform !== 'darwin') console.warn('Skipping: quiet-electron changes nothing outside macOS, so its tests run only there.')

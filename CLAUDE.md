@@ -13,7 +13,8 @@ Each fact lives in one of these, and the others link to it. A change to what the
 ## The code
 
 - `quiet.cjs` is the shim. It runs inside the app.
-- `index.js` runs in the test process. It exports `launchQuiet`, `quietArgs` and `shimPath`. `index.d.ts` holds their types.
+- `launch.cjs` runs in the test process and holds `launchQuiet`, `quietArgs` and `shimPath`. `index.js` exports them. `index.d.ts` holds their types.
+- `register.cjs` is loaded into the test process with `NODE_OPTIONS=--require`, for a project that does not install the package. It sends every Playwright `_electron.launch` through `launchQuiet`.
 - `modes.cjs` defines what each `QUIET_ELECTRON` value does. Both sides read it: `quietArgs` to decide whether to load the shim, and the shim to decide what to do.
 
 ## Tests
@@ -33,6 +34,8 @@ The tests run only on macOS. On other platforms the suite skips, because the shi
 The suite launches through `launchQuiet`, which removes `ELECTRON_RUN_AS_NODE`, so it passes from a shell that exports that variable. If you launch Electron by hand to debug, unset it first.
 
 The tests sample the frontmost app through `lsappinfo` during the whole run and assert that Electron never appears. Activation is asynchronous and can be brief, so window state read at the end would miss it. The test also asserts that samples were taken after the app's attempts, so a sampler that stopped early cannot pass.
+
+`test/plain-launch.mjs` launches the test app with a plain `_electron.launch`, the way a project without the package does. The suite runs it in Node with `register.cjs` loaded.
 
 ### The test app
 
@@ -60,6 +63,8 @@ When you add a way for an app to come forward, add the call to `test/rude.cjs`.
 - **New windows show through the shim's own show function.** The code calls `quietShow.call(win)`, never `win.show()`. An app's subclass may override `show()` and use its own fields, which do not exist yet while the base constructor runs.
 - **The `fullscreen` and `kiosk` option keys are removed, not set to `false`.** `fullscreen: false` also makes the window unable to enter full screen later. The test checks every window is still `fullScreenable`.
 - **Opacity and mouse handling are set in two places.** They are the proxy's constructor and the `browser-window-created` event. The event covers windows Electron builds itself, such as the ones a page opens. The constructor covers `BaseWindow`, which does not fire it.
+- **`register.cjs` leaves a launch alone when its arguments already load this shim.** Loading the same file twice with `-r` runs it once, so the second `-r <shim>` would stay in `process.argv`. A different copy of the shim is a different file: the shim's `quietElectronLoaded` global makes only the first copy act, and each removes its own arguments.
+- **`register.cjs` checks for `_electron` with `Object.hasOwn`.** It runs on every module the test process loads, and a plain property read can call a getter that throws.
 - **The stderr lines keep their `quiet-electron: ignored` prefix.** `PROMPT.md` and the reference tell readers to look for it, and the test asserts the full lines.
 
 ## Working rules
